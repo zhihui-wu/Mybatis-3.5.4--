@@ -29,6 +29,7 @@ public final class PropertyNamer {
   }
 
   public static String methodToProperty(String name) {
+    // 按照JavaBean的规范，获取对应的属性名称
     if (name.startsWith("is")) {
       name = name.substring(2);
     } else if (name.startsWith("get") || name.startsWith("set")) {
@@ -49,6 +50,8 @@ public final class PropertyNamer {
   }
 
   public static boolean isGetter(String name) {
+    // JavaBean中getter方法的方法名长度大于3且必须以"get"开头
+    // 或者长度大于2且必须以"is"开头
     return (name.startsWith("get") && name.length() > 3) || (name.startsWith("is") && name.length() > 2);
   }
 

@@ -140,6 +140,7 @@ public class Reflector {
     // 步骤一：获取当前类以及其父类和接口中定义的所有方法的唯一签名以及相应的Method对象
     Method[] methods = getClassMethods(clazz);
     // 步骤二：按照JavaBean规范从methods中查找该类中定义的getter方法，将其记录到conflictingGetters集合中
+    // 方法的参数列表为空且方法名符合规范
     Arrays.stream(methods).filter(m -> m.getParameterTypes().length == 0 && PropertyNamer.isGetter(m.getName()))
       .forEach(m -> addMethodConflict(conflictingGetters, PropertyNamer.methodToProperty(m.getName()), m));
     // 对conflictingGetters集合的覆写情况进行处理，并填充getMethods集合和填充getTypes集合
@@ -198,8 +199,12 @@ public class Reflector {
   }
 
   private void addMethodConflict(Map<String, List<Method>> conflictingMethods, String name, Method method) {
+    // 将属性名与getter方法的对应关系记录到conflictingMethods集合中
+    // 验证属性名是否合法
     if (isValidPropertyName(name)) {
+      // 数组中是否有key为变量name的键值对，有则返回其value即List<Method>数组，无则返回空数组
       List<Method> list = conflictingMethods.computeIfAbsent(name, k -> new ArrayList<>());
+      // 在数组中插入Method方法
       list.add(method);
     }
   }
@@ -315,6 +320,8 @@ public class Reflector {
   }
 
   private boolean isValidPropertyName(String name) {
+    // 判断该属性名符合规范，不能是以"$"开头，或不能等于"serialVersionUID"和"class"
+    // # todo 疑问：为什么不能等于"serialVersionUID"和"class"？
     return !(name.startsWith("$") || "serialVersionUID".equals(name) || "class".equals(name));
   }
 
@@ -341,7 +348,7 @@ public class Reflector {
       // we also need to look for interface methods -
       // because the class may be abstract
       // 记录接口中定义的方法，因为该类可能是一个抽象类
-      // todo 不理解，是否抽象类使用上述currentClass.getDeclaredMethods()方法无法获取获取到方法，要和接口一起处理
+      // #todo 不理解，是否抽象类使用上述currentClass.getDeclaredMethods()方法无法获取获取到方法，要和接口一起处理
       Class<?>[] interfaces = currentClass.getInterfaces();
       for (Class<?> anInterface : interfaces) {
         addUniqueMethods(uniqueMethods, anInterface.getMethods());
@@ -351,7 +358,7 @@ public class Reflector {
     }
 
     Collection<Method> methods = uniqueMethods.values();
-    // 转换成Methods数组返回
+    // 转换成Methods数组返回 #todo 疑问：new Method[0]是否应该是new Method[methods.size()]
     return methods.toArray(new Method[0]);
   }
 

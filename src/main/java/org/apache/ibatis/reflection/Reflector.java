@@ -84,7 +84,7 @@ public class Reflector {
   private final Map<String, Class<?>> setTypes = new HashMap<>();
 
   /**
-   * 记录了属性相应的getter方法的返回值类型，key是属性名称，value是setter方法的参数类型
+   * 记录了属性相应的getter方法的返回值类型，key是属性名称，value是getter方法的返回类型
    */
   private final Map<String, Class<?>> getTypes = new HashMap<>();
 
@@ -148,33 +148,47 @@ public class Reflector {
   }
 
   private void resolveGetterConflicts(Map<String, List<Method>> conflictingGetters) {
+    // 遍历conflictingGetters集合
     for (Entry<String, List<Method>> entry : conflictingGetters.entrySet()) {
+      // 最适合的getter方法
       Method winner = null;
+      // 获取属性名称
       String propName = entry.getKey();
+      // 是否有二义性
       boolean isAmbiguous = false;
+      // 遍历属性的getter方法集合
       for (Method candidate : entry.getValue()) {
+        // 将第一个getter方法设为最适合的getter方法，跳过本次循环
         if (winner == null) {
           winner = candidate;
           continue;
         }
+        // 对比覆写的getter方法的返回类型进行比较
         Class<?> winnerType = winner.getReturnType();
         Class<?> candidateType = candidate.getReturnType();
         if (candidateType.equals(winnerType)) {
+          // 返回值类型相同
           if (!boolean.class.equals(candidateType)) {
+            // 如果返回值类型不为boolean，二义性
             isAmbiguous = true;
             break;
           } else if (candidate.getName().startsWith("is")) {
+            // 如果当前方法的方法名以"is"开头，则设当前方法为最适合方法
             winner = candidate;
           }
         } else if (candidateType.isAssignableFrom(winnerType)) {
+          // 当前最适合的方法的返回值是当前方法返回值的子类，什么都不做，当前最适合的方法
           // OK getter type is descendant
         } else if (winnerType.isAssignableFrom(candidateType)) {
+          // 当前方法的返回值是当前最适合的方法的返回值的子类，
+          // 更新临时变量getter，当前getter方法为最适合的getter方法
           winner = candidate;
         } else {
           isAmbiguous = true;
           break;
         }
       }
+      // 填充getMethod集合
       addGetMethod(propName, winner, isAmbiguous);
     }
   }
@@ -185,8 +199,11 @@ public class Reflector {
             "Illegal overloaded getter method with ambiguous type for property ''{0}'' in class ''{1}''. This breaks the JavaBeans specification and can cause unpredictable results.",
             name, method.getDeclaringClass().getName()))
         : new MethodInvoker(method);
+    // 将属性名以及对应的MethodInvoker对象添加到getMethods集合
     getMethods.put(name, invoker);
+    // 获取返回值的Type
     Type returnType = TypeParameterResolver.resolveReturnType(method, type);
+    // 将属性名称及其getter方法的返回值类型添加到getTypes集合中保存
     getTypes.put(name, typeToClass(returnType));
   }
 

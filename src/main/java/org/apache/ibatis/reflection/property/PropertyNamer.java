@@ -56,6 +56,7 @@ public final class PropertyNamer {
   }
 
   public static boolean isSetter(String name) {
+    // JavaBean中setter方法的方法名长度大于3且必须以"set"开头
     return name.startsWith("set") && name.length() > 3;
   }
 

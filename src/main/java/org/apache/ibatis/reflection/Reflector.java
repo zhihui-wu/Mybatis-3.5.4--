@@ -120,15 +120,19 @@ public class Reflector {
 
     // 初始化caseInsensitivePropertyMap集合，其中记录了所有大写格式的属性名称
     for (String propName : readablePropertyNames) {
+      // key大写
       caseInsensitivePropertyMap.put(propName.toUpperCase(Locale.ENGLISH), propName);
     }
     for (String propName : writablePropertyNames) {
+      // key大写
       caseInsensitivePropertyMap.put(propName.toUpperCase(Locale.ENGLISH), propName);
     }
   }
 
   private void addDefaultConstructor(Class<?> clazz) {
+    // 获取所有声明的构造函数
     Constructor<?>[] constructors = clazz.getDeclaredConstructors();
+    // 筛选出无参默认函数
     Arrays.stream(constructors).filter(constructor -> constructor.getParameterTypes().length == 0)
       .findAny().ifPresent(constructor -> this.defaultConstructor = constructor);
   }
@@ -208,10 +212,16 @@ public class Reflector {
   }
 
   private void addSetMethods(Class<?> clazz) {
+    // conflictingSetters集合的key是属性名称，value是对应的setter方法集合，
+    // 因为子类可能覆盖父类的setter方法，所以同一属性名称可能会存在多个setter方法
     Map<String, List<Method>> conflictingSetters = new HashMap<>();
+    // 步骤一：获取当前类以及其父类和接口中定义的所有方法的唯一签名以及相应的Method对象
     Method[] methods = getClassMethods(clazz);
+    // 步骤二：按照JavaBean规范从methods中查找该类中定义的setter方法，将其记录到conflictingSetters集合中
+    // 方法的参数个数为1个且方法名符合规范
     Arrays.stream(methods).filter(m -> m.getParameterTypes().length == 1 && PropertyNamer.isSetter(m.getName()))
       .forEach(m -> addMethodConflict(conflictingSetters, PropertyNamer.methodToProperty(m.getName()), m));
+    // 对conflictingSetters集合的覆写情况进行处理，并填充setMethods集合和填充setTypes集合
     resolveSetterConflicts(conflictingSetters);
   }
 
@@ -399,6 +409,7 @@ public class Reflector {
   }
 
   private String getSignature(Method method) {
+    // 拼接Method的唯一签名
     StringBuilder sb = new StringBuilder();
     Class<?> returnType = method.getReturnType();
     if (returnType != null) {
@@ -447,6 +458,10 @@ public class Reflector {
     }
   }
 
+  /**
+   * 是否有默认构造函数
+   * @return 有默认构造函数，返回true
+   */
   public boolean hasDefaultConstructor() {
     return defaultConstructor != null;
   }
@@ -469,6 +484,7 @@ public class Reflector {
 
   /**
    * Gets the type for a property setter.
+   * 获取属性对应setter方法的参数值类型
    *
    * @param propertyName - the name of the property
    * @return The Class of the property setter
@@ -483,6 +499,7 @@ public class Reflector {
 
   /**
    * Gets the type for a property getter.
+   * 获取属性对应getter方法的返回值类型
    *
    * @param propertyName - the name of the property
    * @return The Class of the property getter
@@ -497,6 +514,7 @@ public class Reflector {
 
   /**
    * Gets an array of the readable properties for an object.
+   * 获取有对应getter方法的属性集合
    *
    * @return The array
    */
@@ -506,6 +524,7 @@ public class Reflector {
 
   /**
    * Gets an array of the writable properties for an object.
+   * 获取有对应setter方法的属性集合
    *
    * @return The array
    */
@@ -515,9 +534,12 @@ public class Reflector {
 
   /**
    * Check to see if a class has a writable property by name.
+   * 检查类是否具有该属性的setter方法
    *
    * @param propertyName - the name of the property to check
+   *                       属性名
    * @return True if the object has a writable property by the name
+   * 、      如果存在对应setter方法，返回true
    */
   public boolean hasSetter(String propertyName) {
     return setMethods.keySet().contains(propertyName);
@@ -525,14 +547,22 @@ public class Reflector {
 
   /**
    * Check to see if a class has a readable property by name.
+   * 检查类是否具有该属性的getter方法
    *
    * @param propertyName - the name of the property to check
+   *                       属性名
    * @return True if the object has a readable property by the name
+   *         如果存在对应getter方法，返回true
    */
   public boolean hasGetter(String propertyName) {
     return getMethods.keySet().contains(propertyName);
   }
 
+  /**
+   * 不区分大小写，获取对应属性名
+   * @param name 不区分大小写的属性名
+   * @return 获取属性名
+   */
   public String findPropertyName(String name) {
     return caseInsensitivePropertyMap.get(name.toUpperCase(Locale.ENGLISH));
   }

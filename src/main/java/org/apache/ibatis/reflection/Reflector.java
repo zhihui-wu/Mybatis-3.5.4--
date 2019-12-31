@@ -172,6 +172,7 @@ public class Reflector {
         Class<?> candidateType = candidate.getReturnType();
         if (candidateType.equals(winnerType)) {
           // 返回值类型相同
+          // 返回类型相同时，只能是boolean类型，否则有误 todo：对此处的类型相同分支下的内容不理解
           if (!boolean.class.equals(candidateType)) {
             // 如果返回值类型不为boolean，二义性
             isAmbiguous = true;
@@ -198,6 +199,8 @@ public class Reflector {
   }
 
   private void addGetMethod(String name, Method method, boolean isAmbiguous) {
+    // 如果isAmbiguous为true，则构造的invoker为反射异常专用invoker，反射调用时，会直接抛出此处设置的异常
+    // todo:反射的原理，jdk源代码需学习，学习了解invoker的底层实现
     MethodInvoker invoker = isAmbiguous
         ? new AmbiguousMethodInvoker(method, MessageFormat.format(
             "Illegal overloaded getter method with ambiguous type for property ''{0}'' in class ''{1}''. This breaks the JavaBeans specification and can cause unpredictable results.",
@@ -206,6 +209,7 @@ public class Reflector {
     // 将属性名以及对应的MethodInvoker对象添加到getMethods集合
     getMethods.put(name, invoker);
     // 获取返回值的Type
+    // Type是Java编程语言中所有类型的公共超类接口，包括：基本类型、数组类型、原始类型、泛型（参数化类型）、Class
     Type returnType = TypeParameterResolver.resolveReturnType(method, type);
     // 将属性名称及其getter方法的返回值类型添加到getTypes集合中保存
     getTypes.put(name, typeToClass(returnType));
@@ -289,20 +293,30 @@ public class Reflector {
   }
 
   private Class<?> typeToClass(Type src) {
+    // Class<?> 和 Class 是一个意思， Class<?>中的？表示对象类型不确定
+    // todo:对于泛型、Class、T、？、instanceof、ParameterizedType、GenericArrayType 等需再做深入了解
+    // 将Type转换为Class
     Class<?> result = null;
     if (src instanceof Class) {
+      // 如果src也是Class类型，则转换
       result = (Class<?>) src;
     } else if (src instanceof ParameterizedType) {
+      // 如果是泛型（参数化类型），返回承载该泛型信息的对象，如Map<String, String>，承载泛型信息的对象是Map，返回Map的Type对象。
+      // 再强转为Class对象
       result = (Class<?>) ((ParameterizedType) src).getRawType();
     } else if (src instanceof GenericArrayType) {
+      // 如果是泛型数组，获得这个数组脱去最右的[]后剩余类型。如T[], 返回T。如A<T>[],返回A<T>
       Type componentType = ((GenericArrayType) src).getGenericComponentType();
       if (componentType instanceof Class) {
+        // 如果类型为Class类型，转为Class后，构造数组
         result = Array.newInstance((Class<?>) componentType, 0).getClass();
       } else {
+        // 否则递归处理
         Class<?> componentClass = typeToClass(componentType);
         result = Array.newInstance(componentClass, 0).getClass();
       }
     }
+    // 如果result是空，则返回Object的Class类型
     if (result == null) {
       result = Object.class;
     }

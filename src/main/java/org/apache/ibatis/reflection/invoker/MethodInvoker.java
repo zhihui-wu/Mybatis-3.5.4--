@@ -41,9 +41,11 @@ public class MethodInvoker implements Invoker {
   @Override
   public Object invoke(Object target, Object[] args) throws IllegalAccessException, InvocationTargetException {
     try {
+      // 调用反射底层的invoker
       return method.invoke(target, args);
     } catch (IllegalAccessException e) {
       if (Reflector.canControlMemberAccessible()) {
+        // 如果有权限检查，且无权访问，则关闭权限检查，再调用反射底层的invoker
         method.setAccessible(true);
         return method.invoke(target, args);
       } else {

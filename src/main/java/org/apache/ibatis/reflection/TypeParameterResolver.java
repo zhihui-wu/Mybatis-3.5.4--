@@ -27,6 +27,7 @@ import java.util.Arrays;
 
 /**
  * @author Iwao AVE!
+ * 类型参数解析器
  */
 public class TypeParameterResolver {
 
@@ -53,14 +54,20 @@ public class TypeParameterResolver {
   /**
    * @return The parameter types of the method as an array of {@link Type}s. If they have type parameters in the declaration,<br>
    *         they will be resolved to the actual runtime {@link Type}s.
+   * 将方法的参数类型作为类型数组。如果其中在声明中有类型参数，将它们解析为实际的运行时类型
    */
   public static Type[] resolveParamTypes(Method method, Type srcType) {
+    // 获取参数类型列表
     Type[] paramTypes = method.getGenericParameterTypes();
+    // 获取该方法所属的类
     Class<?> declaringClass = method.getDeclaringClass();
+    // 构建空数组
     Type[] result = new Type[paramTypes.length];
+    // 解析为实际的运行时类型
     for (int i = 0; i < paramTypes.length; i++) {
       result[i] = resolveType(paramTypes[i], srcType, declaringClass);
     }
+    // 返回结果
     return result;
   }
 

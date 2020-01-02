@@ -107,11 +107,15 @@ public class Reflector {
     type = clazz;
     // 查找clazz的默认构造方法（无参构造方法），具体实现是通过反射遍历所有构造方法
     addDefaultConstructor(clazz);
+
+    // 以下三个方法中，调用的add*Method()方法和add*Field()方法在对应集合添加元素时，
+    // 会将getter/setter方法对应的Method对象以及字段对应的Field对象统一封装成Invoker对象
+
     // 处理clazz中的getter方法，填充getMethods集合和getTypes集合
     addGetMethods(clazz);
     // 处理clazz中的setter方法，填充setMethods集合和setTypes集合
     addSetMethods(clazz);
-    // 处理没有getter/setter方法的字段
+    // 处理没有getter/setter方法的字段，追加填充getMethods集合、getTypes集合、setMethods集合和setTypes集合
     addFields(clazz);
 
     // 根据getMethods/setMethods集合，初始化可读/写属性的名称集合
@@ -243,21 +247,28 @@ public class Reflector {
   private void resolveSetterConflicts(Map<String, List<Method>> conflictingSetters) {
     for (String propName : conflictingSetters.keySet()) {
       List<Method> setters = conflictingSetters.get(propName);
+      // 指定属性在getType集合（getter方法返回类型集合）中存在的类型
       Class<?> getterType = getTypes.get(propName);
       boolean isGetterAmbiguous = getMethods.get(propName) instanceof AmbiguousMethodInvoker;
       boolean isSetterAmbiguous = false;
       Method match = null;
       for (Method setter : setters) {
+        // 如果属性名对应setter方法的第一个参数类型等于属性名对应的getter方法的返回值类型
+        // 且属性名对应getter方法没有二义性（错误）
+        // 则该setter方法为最适合的setter方法
         if (!isGetterAmbiguous && setter.getParameterTypes()[0].equals(getterType)) {
           // should be the best match
           match = setter;
           break;
         }
+        // 不满足上一个if条件
+        // 则setter方法有二义性，需挑选最适合的setter方法
         if (!isSetterAmbiguous) {
           match = pickBetterSetter(match, setter, propName);
           isSetterAmbiguous = match == null;
         }
       }
+      // 匹配到最适合的setter，填充setMethods集合
       if (match != null) {
         addSetMethod(propName, match);
       }
@@ -265,29 +276,37 @@ public class Reflector {
   }
 
   private Method pickBetterSetter(Method setter1, Method setter2, String property) {
+    // 如果setter2为第一个setter方法，则直接返回
     if (setter1 == null) {
       return setter2;
     }
     Class<?> paramType1 = setter1.getParameterTypes()[0];
     Class<?> paramType2 = setter2.getParameterTypes()[0];
     if (paramType1.isAssignableFrom(paramType2)) {
+      // 如果paramType2是paramType1的子类或者子接口，则返回setter2
       return setter2;
     } else if (paramType2.isAssignableFrom(paramType1)) {
+      // 如果paramType1是paramType2的子类或者子接口，则返回setter1
       return setter1;
     }
+    // 如果不满足以上情况，则有误
     MethodInvoker invoker = new AmbiguousMethodInvoker(setter1,
         MessageFormat.format(
             "Ambiguous setters defined for property ''{0}'' in class ''{1}'' with types ''{2}'' and ''{3}''.",
             property, setter2.getDeclaringClass().getName(), paramType1.getName(), paramType2.getName()));
+    // 填充setter方法集合时，将给setter的invoker设为专用于二义异常的invoker
     setMethods.put(property, invoker);
+    // 将setter1的参数类型解析为实际运行时类型，并使用第一个参数类型填充setType集合
     Type[] paramTypes = TypeParameterResolver.resolveParamTypes(setter1, type);
     setTypes.put(property, typeToClass(paramTypes[0]));
     return null;
   }
 
   private void addSetMethod(String name, Method method) {
+    // 填充setMethods集合和setTypes集合
     MethodInvoker invoker = new MethodInvoker(method);
     setMethods.put(name, invoker);
+    // 解析为实际运行时类型
     Type[] paramTypes = TypeParameterResolver.resolveParamTypes(method, type);
     setTypes.put(name, typeToClass(paramTypes[0]));
   }
@@ -324,35 +343,51 @@ public class Reflector {
   }
 
   private void addFields(Class<?> clazz) {
+    // 获取clazz中定义的所有字段
     Field[] fields = clazz.getDeclaredFields();
     for (Field field : fields) {
+      // 如果setMethods不是否包含该属性名
       if (!setMethods.containsKey(field.getName())) {
         // issue #379 - removed the check for final because JDK 1.5 allows
         // modification of final fields through reflection (JSR-133). (JGB)
         // pr #16 - final static can only be set by the classloader
+        // 问题 #379 - 删除了final的检查，因为JDK1.5允许通过反射修改fianl字段（JSR-133）。
+        // pr #16 - 最终的静态只能由类加载器来设置
+        // getModifiers()方法，以整数形式返回此字段的Java语言修饰符，应使用修饰词类来解码修饰词
         int modifiers = field.getModifiers();
+        // 过滤掉fianl和static修饰的字段
         if (!(Modifier.isFinal(modifiers) && Modifier.isStatic(modifiers))) {
+          // addSetField()方法的主要功能是填充setMethods集合和setTypes集合，
+          // 与addSetMethod()方法类似
           addSetField(field);
         }
       }
+      // 如果getMethods不包含该属性名
       if (!getMethods.containsKey(field.getName())) {
+        // addGetField()方法的主要功能是填充getMethods集合和getTypes集合
+        // 与addGetMethod()方法类似
         addGetField(field);
       }
     }
+    // 处理父类中定义的字段，递归
     if (clazz.getSuperclass() != null) {
       addFields(clazz.getSuperclass());
     }
   }
 
   private void addSetField(Field field) {
+    // 如果属性名合法
     if (isValidPropertyName(field.getName())) {
+      // 构造该属性对应的setter方法，填充setMethods集合
       setMethods.put(field.getName(), new SetFieldInvoker(field));
+      // 解析为实际运行时类型，填充setTypes集合
       Type fieldType = TypeParameterResolver.resolveFieldType(field, type);
       setTypes.put(field.getName(), typeToClass(fieldType));
     }
   }
 
   private void addGetField(Field field) {
+    // 同addSetField()方法类似
     if (isValidPropertyName(field.getName())) {
       getMethods.put(field.getName(), new GetFieldInvoker(field));
       Type fieldType = TypeParameterResolver.resolveFieldType(field, type);

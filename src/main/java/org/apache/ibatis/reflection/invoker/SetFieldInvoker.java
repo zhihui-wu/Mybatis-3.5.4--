@@ -26,11 +26,13 @@ public class SetFieldInvoker implements Invoker {
   private final Field field;
 
   public SetFieldInvoker(Field field) {
+    // 通过field字段封装了对应的Field对象
     this.field = field;
   }
 
   @Override
   public Object invoke(Object target, Object[] args) throws IllegalAccessException {
+    // 其invoke()方法是通过调用Field.set()方法实现的
     try {
       field.set(target, args[0]);
     } catch (IllegalAccessException e) {

@@ -26,11 +26,13 @@ public class GetFieldInvoker implements Invoker {
   private final Field field;
 
   public GetFieldInvoker(Field field) {
+    // 通过field字段封装了对应的Field对象
     this.field = field;
   }
 
   @Override
   public Object invoke(Object target, Object[] args) throws IllegalAccessException {
+    // 其invoke()方法是通过调用Field.get()方法实现的
     try {
       return field.get(target);
     } catch (IllegalAccessException e) {

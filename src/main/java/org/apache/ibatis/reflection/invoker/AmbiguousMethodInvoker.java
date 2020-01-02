@@ -24,6 +24,8 @@ public class AmbiguousMethodInvoker extends MethodInvoker {
   private final String exceptionMessage;
 
   public AmbiguousMethodInvoker(Method method, String exceptionMessage) {
+    // 通过method字段封装了对应方法的Method对象
+    // 通过exceptionMessage字段封装了Method对象的异常信息
     super(method);
     this.exceptionMessage = exceptionMessage;
   }

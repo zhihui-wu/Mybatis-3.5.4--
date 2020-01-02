@@ -29,11 +29,15 @@ public class MethodInvoker implements Invoker {
   private final Method method;
 
   public MethodInvoker(Method method) {
+    // 通过method字段封装了对应方法的Method对象
     this.method = method;
 
+    // todo：type属性这般赋值的意图为何？
     if (method.getParameterTypes().length == 1) {
+      // 参数有且只有一个时，赋值为第一个参数类型
       type = method.getParameterTypes()[0];
     } else {
+      // 否则，赋值为返回类型
       type = method.getReturnType();
     }
   }
@@ -42,6 +46,7 @@ public class MethodInvoker implements Invoker {
   public Object invoke(Object target, Object[] args) throws IllegalAccessException, InvocationTargetException {
     try {
       // 调用反射底层的invoker
+      // 其invoke()方法是通过调用Method.invoke()方法实现的
       return method.invoke(target, args);
     } catch (IllegalAccessException e) {
       if (Reflector.canControlMemberAccessible()) {
